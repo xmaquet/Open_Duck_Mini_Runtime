@@ -220,7 +220,19 @@ def feet_status():
     devices = get_devices()
     fc = devices["feet"]
     if fc is None:
-        return _err("feet_unavailable")
+        # Tentative de ré-initialisation à la volée (ex: Blinka installé après démarrage)
+        try:
+            from mini_bdx_runtime.feet_contacts import FeetContacts  # type: ignore
+            import sys
+
+            fc = FeetContacts()
+            # Met à jour le cache du module webui
+            webui_mod = sys.modules.get(__package__)
+            if webui_mod is not None:
+                setattr(webui_mod, "_feet", fc)
+        except Exception as e:
+            # Retourne l'erreur précise pour faciliter le debug
+            return _err("feet_unavailable", detail=str(e))
     try:
         left, right = fc.get()
         return _ok({"left": bool(left), "right": bool(right)})
