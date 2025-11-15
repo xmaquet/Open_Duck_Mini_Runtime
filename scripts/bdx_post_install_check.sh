@@ -9,14 +9,6 @@ set -euo pipefail
 #   TEST_WEBUI=1 PORT=8080 bash scripts/bdx_post_install_check.sh
 #
 
-if [[ "$(uname -s)" != "Linux" ]]; then
-  echo "Ce script est prévu pour Linux (Raspberry Pi OS)."
-fi
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-cd "${ROOT_DIR}"
-
 FAIL=0
 
 note() { echo -e "[INFO]  $*"; }
@@ -24,9 +16,41 @@ ok()   { echo -e "[OK]    $*"; }
 warn() { echo -e "[WARN]  $*"; }
 err()  { echo -e "[ERROR] $*"; FAIL=$((FAIL+1)); }
 
+if [[ "$(uname -s)" != "Linux" ]]; then
+  warn "Ce script est prévu pour Linux (Raspberry Pi OS)."
+fi
+
+# Détermination de la racine du projet
+# - Si DIR ou REPO_DIR est fourni(e), on l'utilise
+# - Sinon: si on est dans le repo cloné, on détecte via setup.cfg
+# - Sinon: fallback sur $HOME/Open_Duck_Mini_Runtime si présent, ou PWD
+if [[ -n "${DIR:-${REPO_DIR:-}}" ]]; then
+  ROOT_DIR="${DIR:-${REPO_DIR}}"
+else
+  if [[ -n "${BASH_SOURCE:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  else
+    SCRIPT_DIR="${PWD}"
+  fi
+  if [[ -f "${SCRIPT_DIR}/../setup.cfg" ]]; then
+    ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+  elif [[ -f "./setup.cfg" ]]; then
+    ROOT_DIR="${PWD}"
+  elif [[ -d "${HOME}/Open_Duck_Mini_Runtime" && -f "${HOME}/Open_Duck_Mini_Runtime/setup.cfg" ]]; then
+    ROOT_DIR="${HOME}/Open_Duck_Mini_Runtime"
+  else
+    ROOT_DIR="${PWD}"
+  fi
+fi
+cd "${ROOT_DIR}"
 note "Dossier projet: ${ROOT_DIR}"
 
-if [[ -d ".venv" ]]; then
+# Activation du venv si possible
+if [[ -n "${VENV_PATH:-}" && -f "${VENV_PATH}/bin/activate" ]]; then
+  # shellcheck source=/dev/null
+  source "${VENV_PATH}/bin/activate"
+  ok "Environnement virtuel activé (${VENV_PATH})"
+elif [[ -f ".venv/bin/activate" ]]; then
   # shellcheck source=/dev/null
   source ".venv/bin/activate"
   ok "Environnement virtuel activé (.venv)"
