@@ -1,0 +1,53 @@
+# Règles IA – Open Duck Mini Runtime (BDXv2)
+
+## Contexte projet
+- Ce dépôt est un fork de `apirrone/Open_Duck_Mini_Runtime`.
+- Il contient le runtime embarqué du Open Duck Mini, prévu pour tourner sur un Raspberry Pi Zero 2W.
+- Le code principal est dans :
+  - `mini_bdx_runtime/` : package Python du runtime
+  - `scripts/` : scripts utilitaires (tests, calibration, etc.).
+- Cible principale : robot physique (IMU, moteurs, contrôleur Xbox, audio, etc.).
+
+## Objectifs pour les développements spécifiques BDX
+- Ajouter des fonctionnalités spécifiques BDX sans casser la compatibilité avec l’upstream si possible.
+- Documenter clairement ce qui est spécifique BDX dans le code et dans la doc.
+- Éviter d’introduire des dépendances lourdes ou difficiles à installer sur Raspberry Pi Zero 2W.
+
+### Nommage / Organisation
+- Préfixer les éléments spécifiques BDX par `bdx_` quand c’est utile pour les identifier :
+  - Modules : `bdx_*.py` ou sous-dossier `bdx/`
+  - Fonctions / classes : noms explicites incluant `bdx` si la fonctionnalité est vraiment spécifique.
+- Centraliser la logique de configuration dans les fichiers existants (`example_config.json`, `duck_config.json` sur le robot) plutôt que de multiplier les fichiers de config.
+- Lorsque c’est pertinent, ajouter des notes dans `docs/bdx_notes.md` ou un fichier équivalent pour les spécificités BDX.
+
+## Style de code
+- Respecter le style existant du projet (config dans `pyproject.toml` et autres fichiers).
+- Utiliser un Python moderne (type hints quand ça aide, mais sans surcharger).
+- Favoriser la lisibilité.
+- Documenter les fonctions “publiques” avec un court docstring.
+
+## Contraintes techniques
+- Ne pas ajouter de dépendances non indispensables, surtout si elles sont lourdes ou difficiles à installer sur Raspberry Pi OS.
+- Ne pas supposer la présence d’un écran ou d’une interface graphique sur le robot.
+- Le code hardware doit :
+  - gérer proprement les erreurs (périphérique absent, I2C indisponible, etc.),
+  - éviter de bloquer totalement le robot en cas d’erreur d’IO.
+
+## Interaction avec l’IA (Cursor)
+- Limiter la portée des modifications aux fichiers pertinents.
+- Expliquer les impacts matériels potentiels (moteurs, IMU, contrôleur, audio).
+- Pour un gros refactor :
+  - préférer des changements par étapes, faciles à valider.
+  - éviter de renommer/déplacer les scripts existants sans raison forte.
+- Pour toute nouvelle fonctionnalité BDX :
+  - proposer une petite section de doc (README_FR ou fichier dédié),
+  - expliquer les prérequis matériels.
+
+## Bonnes pratiques Git
+- Travailler sur des branches de feature :
+  - `feature/bdx_<nom_fonctionnalite>`
+  - `fix/bdx_<description>`
+- Utiliser des messages de commit explicites :
+  - `feat(bdx): ajout mode demo salon`
+  - `fix(bdx): corrige offset imu`
+- Garder la branche principale propre, et synchronisée avec l’upstream si nécessaire.
