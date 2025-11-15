@@ -8,7 +8,9 @@ fi
 
 echo "[1/5] apt update + prérequis"
 sudo apt update -y
-sudo apt install -y python3 python3-venv python3-pip
+sudo apt install -y python3 python3-venv python3-pip pkg-config \
+  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+  libfreetype6-dev libjpeg-dev zlib1g-dev libasound2-dev libportmidi-dev
 
 echo "[2/5] Création (ou réutilisation) du venv .venv"
 if [[ ! -d ".venv" ]]; then

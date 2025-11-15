@@ -56,6 +56,10 @@ pip install -e .
 
 if [[ "$WITH_WEBUI" == "1" ]]; then
   echo "[5/6] Installation de la Web UI (Flask) via l'extra [webui]"
+  echo "      Installation des dépendances système nécessaires à pygame/SDL..."
+  sudo apt install -y pkg-config \
+    libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+    libfreetype6-dev libjpeg-dev zlib1g-dev libasound2-dev libportmidi-dev
   # Utilise le script dédié si présent (gère aussi apt et contrôles)
   if [[ -f "scripts/install_bdx_webui.sh" ]]; then
     bash scripts/install_bdx_webui.sh
