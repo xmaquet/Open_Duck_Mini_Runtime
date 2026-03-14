@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Script de vérification post-install (runtime + Web UI)
+# Script de vérification post-install (runtime)
 # À lancer après l'installation pour valider l'environnement.
 # Usage:
 #   bash scripts/bdx_post_install_check.sh
-# Options:
-#   TEST_WEBUI=1 PORT=8080 bash scripts/bdx_post_install_check.sh
 #
 
 FAIL=0
@@ -111,41 +109,6 @@ try:
 except Exception as e:
     print(f"[WARN]  FeetContacts indisponible: {e}")
 PY
-
-TEST_WEBUI="${TEST_WEBUI:-0}"
-PORT="${PORT:-8080}"
-if [[ "${TEST_WEBUI}" == "1" ]]; then
-  note "Test Web UI: lancement temporaire sur le port ${PORT}"
-  # Essai n°1: chemin court
-  set +e
-  python -m mini_bdx_runtime.webui --port "${PORT}" >/tmp/bdx_webui_test.log 2>&1 &
-  PID=$!
-  sleep 1
-  if ! kill -0 "${PID}" 2>/dev/null; then
-    # Essai n°2: chemin imbriqué (selon installation)
-    python -m mini_bdx_runtime.mini_bdx_runtime.webui --port "${PORT}" >/tmp/bdx_webui_test.log 2>&1 &
-    PID=$!
-    sleep 1
-  fi
-  # Attente que /api/health réponde
-  for i in $(seq 1 20); do
-    if curl -sf "http://127.0.0.1:${PORT}/api/health" >/dev/null; then
-      ok "Web UI répond sur /api/health"
-      break
-    fi
-    sleep 0.5
-  done
-  if ! kill -0 "${PID}" 2>/dev/null; then
-    err "Le serveur Web UI ne s'est pas lancé"
-  else
-    kill "${PID}" 2>/dev/null || true
-    sleep 1
-    ok "Serveur Web UI arrêté"
-  fi
-  set -e
-else
-  note "Test Web UI désactivé (TEST_WEBUI != 1)."
-fi
 
 echo
 if [[ ${FAIL} -eq 0 ]]; then

@@ -4,6 +4,8 @@ Ce guide explique comment préparer, configurer et lancer le robot **Open Duck M
 
 ---
 
+Repo (branche `v2`) : https://github.com/xmaquet/Open_Duck_Mini_Runtime/tree/v2
+
 ## 1️⃣ Préparation du Raspberry Pi
 
 ### Installation de Raspberry Pi OS
@@ -64,7 +66,9 @@ SUBSYSTEM=="usb-serial", DRIVER=="ftdi_sio", ATTR{latency_timer}="1"
 
 ---
 
-## 4️⃣ Connexion de la manette Xbox One (Bluetooth)
+## 4️⃣ Lien de commande via manette (Bluetooth)
+
+Objectif : piloter le robot via une manette **Xbox** (et prochainement via **Android** en émulation de manette), connectée en Bluetooth au Raspberry Pi.
 
 1. Allumer et mettre la manette en mode synchronisation.
 2. Sur le Raspberry Pi :
@@ -77,7 +81,9 @@ connect <adresse_mac>
 ```
 3. Tester :
 ```bash
-python3 mini_bdx_runtime/mini_bdx_runtime/xbox_controller.py
+workon open-duck-mini-runtime  # ou active ton venv
+pip install -e .[control]
+python -m mini_bdx_runtime.xbox_controller
 ```
 
 ---
@@ -100,9 +106,8 @@ workon open-duck-mini-runtime
 
 ### Cloner et installer
 ```bash
-git clone https://github.com/apirrone/Open_Duck_Mini_Runtime
+git clone --depth 1 --branch v2 https://github.com/xmaquet/Open_Duck_Mini_Runtime
 cd Open_Duck_Mini_Runtime
-git checkout v2
 pip install -e .
 ```
 

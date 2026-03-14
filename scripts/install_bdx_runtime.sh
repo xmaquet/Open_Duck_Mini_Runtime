@@ -1,20 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Bootstrap d'installation du runtime (et optionnellement de la Web UI) sur Raspberry Pi
+# Bootstrap d'installation du runtime sur Raspberry Pi (optionnel: support manette via pygame)
 # Usage basique (Pi via SSH/puTTY) :
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/scripts/install_bdx_runtime.sh)"
 #
 # Avec options :
-#   BRANCH=feature/bdx_webui bash -c "$(curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/scripts/install_bdx_runtime.sh)"
 #   REPO=https://github.com/xmaquet/Open_Duck_Mini_Runtime.git BRANCH=v2 bash -c "$(curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/scripts/install_bdx_runtime.sh)"
-#   WITH_WEBUI=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/scripts/install_bdx_runtime.sh)"
+#   WITH_CONTROL=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/scripts/install_bdx_runtime.sh)"
 #
 # Variables d'environnement supportées :
 #   REPO   : URL du repo à cloner (défaut: fork xmaquet)
 #   BRANCH : branche à utiliser (défaut: v2)
 #   DIR    : dossier cible (défaut: Open_Duck_Mini_Runtime)
-#   WITH_WEBUI : si "1", installe la web UI (Flask) en plus du runtime
+#   WITH_CONTROL : si "1", installe pygame (+ deps système) pour lire une manette (Xbox/Android)
 #
 
 if [[ "$(uname -s)" != "Linux" ]]; then
@@ -25,7 +24,7 @@ fi
 REPO="${REPO:-https://github.com/xmaquet/Open_Duck_Mini_Runtime.git}"
 BRANCH="${BRANCH:-v2}"
 DIR="${DIR:-Open_Duck_Mini_Runtime}"
-WITH_WEBUI="${WITH_WEBUI:-0}"
+WITH_CONTROL="${WITH_CONTROL:-0}"
 
 echo "[1/6] apt update + prérequis système"
 sudo apt update -y
@@ -54,30 +53,24 @@ python -m pip install --upgrade pip
 echo "[4/6] Installation du runtime (editable)"
 pip install -e .
 
-if [[ "$WITH_WEBUI" == "1" ]]; then
-  echo "[5/6] Installation de la Web UI (Flask) via l'extra [webui]"
+if [[ "$WITH_CONTROL" == "1" ]]; then
+  echo "[5/6] Installation support manette (pygame) via l'extra [control]"
   echo "      Installation des dépendances système nécessaires à pygame/SDL..."
   sudo apt install -y pkg-config \
     libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
     libfreetype6-dev libjpeg-dev zlib1g-dev libasound2-dev libportmidi-dev
-  # Utilise le script dédié si présent (gère aussi apt et contrôles)
-  if [[ -f "scripts/install_bdx_webui.sh" ]]; then
-    bash scripts/install_bdx_webui.sh
-  else
-    pip install -e .[webui]
-  fi
+  pip install -e .[control]
 else
-  echo "[5/6] Étape Web UI ignorée (WITH_WEBUI != 1)"
+  echo "[5/6] Étape support manette ignorée (WITH_CONTROL != 1)"
 fi
 
 echo "[6/6] Installation terminée."
 echo
 echo "Pour activer l'environnement et utiliser le runtime :"
 echo "  source .venv/bin/activate"
-if [[ "$WITH_WEBUI" == "1" ]]; then
-  echo "Pour lancer la Web UI :"
-  echo "  python -m mini_bdx_runtime.webui --port 8080"
-  echo "Puis ouvrez: http://<ip_du_pi>:8080"
+if [[ "$WITH_CONTROL" == "1" ]]; then
+  echo "Pour tester la lecture d'une manette :"
+  echo "  python -m mini_bdx_runtime.xbox_controller"
 fi
 popd >/dev/null
 
