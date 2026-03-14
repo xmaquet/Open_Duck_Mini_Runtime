@@ -1,0 +1,11 @@
+node_modules/
+
+# Web assets generated from android_ui/dist
+www/
+
+# Android build outputs / local config
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+

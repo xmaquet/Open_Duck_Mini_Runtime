@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { VirtualJoystick } from './components/VirtualJoystick';
 import { ButtonPad } from './components/ButtonPad';
 import { DPad } from './components/DPad';
@@ -8,44 +8,24 @@ import { VideoFeed } from './components/VideoFeed';
 import { LogViewer } from './components/LogViewer';
 import { ControlTooltip } from './components/ControlTooltip';
 import tooltipsConfig from '../config/tooltips.json';
-
-interface ControllerState {
-  leftStick: { x: number; y: number };
-  rightStick: { x: number; y: number };
-  buttons: {
-    A: boolean;
-    B: boolean;
-    X: boolean;
-    Y: boolean;
-    LB: boolean;
-    RB: boolean;
-    Start: boolean;
-    Select: boolean;
-  };
-  dpad: {
-    up: boolean;
-    down: boolean;
-    left: boolean;
-    right: boolean;
-  };
-  triggers: {
-    LT: number;
-    RT: number;
-  };
-}
+import type { LogLevel, UiControllerState } from '../transport/types';
+import { uiToControllerFrame } from '../transport/convert';
+import { AndroidBleTransport } from '../transport/androidBleTransport';
+import { MockTransport } from '../transport/mockTransport';
+import type { Transport } from '../transport/transport';
+import { Capacitor } from '@capacitor/core';
 
 interface LogEntry {
   timestamp: string;
   message: string;
-  type: 'info' | 'warning' | 'error' | 'success';
+  type: LogLevel;
 }
 
 export default function App() {
-  const [characteristic, setCharacteristic] = useState<BluetoothRemoteGATTCharacteristic | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showTooltips, setShowTooltips] = useState(false);
-  const [controllerState, setControllerState] = useState<ControllerState>({
+  const [controllerState, setControllerState] = useState<UiControllerState>({
     leftStick: { x: 0, y: 0 },
     rightStick: { x: 0, y: 0 },
     buttons: {
@@ -82,55 +62,26 @@ export default function App() {
     setLogs(prev => [...prev, { timestamp, message, type }]);
   }, []);
 
-  const sendDataToRobot = useCallback(async (data: any) => {
-    if (!characteristic) {
-      console.log('📤 Data to robot:', data);
-      return;
-    }
+  const canUseNativeBle = Capacitor.isNativePlatform();
 
-    try {
-      const jsonString = JSON.stringify(data);
-      const encoder = new TextEncoder();
-      const dataArray = encoder.encode(jsonString);
-      await characteristic.writeValue(dataArray);
-      console.log('Data sent:', data);
-    } catch (err) {
-      console.error('Error sending data:', err);
-      addLog(`Erreur d'envoi: ${err}`, 'error');
-    }
-  }, [characteristic, addLog]);
+  const transport: Transport = useMemo(() => {
+    return canUseNativeBle ? new AndroidBleTransport() : new MockTransport();
+  }, [canUseNativeBle]);
 
-  const handleConnectionChange = useCallback((connected: boolean, char: BluetoothRemoteGATTCharacteristic | null) => {
-    setIsConnected(connected);
-    setCharacteristic(char);
-    
-    if (connected) {
-      addLog(`Connexion établie${char ? ' (Bluetooth)' : ' (Simulation)'}`, 'success');
-      
-      if (char && char.properties.notify) {
-        char.startNotifications().then(() => {
-          char.addEventListener('characteristicvaluechanged', (event: any) => {
-            const value = event.target.value;
-            const decoder = new TextDecoder();
-            const text = decoder.decode(value);
-            
-            try {
-              const data = JSON.parse(text);
-              if (data.type === 'log') {
-                addLog(data.message, data.level || 'info');
-              }
-            } catch {
-              addLog(text, 'info');
-            }
-          });
-          addLog('Écoute des notifications activée', 'success');
-        }).catch(err => {
-          console.error('Could not start notifications:', err);
-        });
+  useEffect(() => {
+    transport.setListener((event) => {
+      if (event.type === 'status') {
+        setIsConnected(event.status.connected);
+      } else if (event.type === 'log') {
+        addLog(event.log.message, event.log.level);
       }
-    } else {
-      addLog('Connexion terminée', 'warning');
-    }
+    });
+    return () => transport.setListener(null);
+  }, [transport, addLog]);
+
+  const handleConnectionChange = useCallback((connected: boolean) => {
+    setIsConnected(connected);
+    if (!connected) addLog('Connexion terminée', 'warning');
   }, [addLog]);
 
   const handleClearLogs = useCallback(() => {
@@ -143,10 +94,9 @@ export default function App() {
         ...prev,
         leftStick: { x, y },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleRightStickMove = useCallback((x: number, y: number) => {
     setControllerState(prev => {
@@ -154,10 +104,9 @@ export default function App() {
         ...prev,
         rightStick: { x, y },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleButtonPress = useCallback((button: string, pressed: boolean) => {
     setControllerState(prev => {
@@ -168,10 +117,9 @@ export default function App() {
           [button]: pressed,
         },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleDirectionPress = useCallback((direction: string, pressed: boolean) => {
     setControllerState(prev => {
@@ -182,10 +130,9 @@ export default function App() {
           [direction]: pressed,
         },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleTriggerChange = useCallback((trigger: string, value: number) => {
     setControllerState(prev => {
@@ -196,10 +143,9 @@ export default function App() {
           [trigger]: value,
         },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleBumperPress = useCallback((bumper: string, pressed: boolean) => {
     setControllerState(prev => {
@@ -210,10 +156,9 @@ export default function App() {
           [bumper]: pressed,
         },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
 
   const handleSystemButton = useCallback((button: 'Start' | 'Select', pressed: boolean) => {
     setControllerState(prev => {
@@ -224,13 +169,26 @@ export default function App() {
           [button]: pressed,
         },
       };
-      sendDataToRobot(newState);
       return newState;
     });
-  }, [sendDataToRobot]);
+  }, []);
+
+  // Envoi à fréquence fixe (alignement runtime: command_freq=20 Hz).
+  // Important BLE: éviter d’envoyer à chaque micro-mouvement.
+  useEffect(() => {
+    let seq = 0;
+    const interval = setInterval(() => {
+      if (!transport.getStatus().connected) return;
+      const frame = uiToControllerFrame(stateRef.current, seq++);
+      transport.send(frame).catch((err) => {
+        addLog(`Erreur transport: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      });
+    }, 50);
+    return () => clearInterval(interval);
+  }, [transport, addLog]);
 
   useEffect(() => {
-    if (isConnected && !characteristic) {
+    if (isConnected && transport.getStatus().mode === 'simulation') {
       const interval = setInterval(() => {
         const messages = [
           'Système moteur opérationnel',
@@ -246,7 +204,7 @@ export default function App() {
       
       return () => clearInterval(interval);
     }
-  }, [isConnected, characteristic, addLog]);
+  }, [isConnected, transport, addLog]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 to-gray-900 text-white flex flex-col">
@@ -255,6 +213,9 @@ export default function App() {
         onConnectionChange={handleConnectionChange}
         showTooltips={showTooltips}
         onToggleTooltips={() => setShowTooltips(!showTooltips)}
+        canUseNativeBle={canUseNativeBle}
+        onConnectNativeBle={() => transport.connect()}
+        onDisconnectNativeBle={() => transport.disconnect()}
       />
       
       {/* Main Layout - Landscape optimized for tablet */}

@@ -3,23 +3,32 @@ import { Bluetooth, BluetoothConnected, Info, Wifi, Upload, HelpCircle } from 'l
 import { Button } from './ui/button';
 
 interface BluetoothManagerProps {
-  onConnectionChange: (connected: boolean, characteristic: BluetoothRemoteGATTCharacteristic | null) => void;
+  onConnectionChange: (connected: boolean) => void;
   logoUrl?: string;
   showTooltips?: boolean;
   onToggleTooltips?: () => void;
+  canUseNativeBle?: boolean;
+  onConnectNativeBle?: () => Promise<void>;
+  onDisconnectNativeBle?: () => Promise<void>;
 }
 
-export function BluetoothManager({ onConnectionChange, logoUrl, showTooltips, onToggleTooltips }: BluetoothManagerProps) {
+export function BluetoothManager({
+  onConnectionChange,
+  logoUrl,
+  showTooltips,
+  onToggleTooltips,
+  canUseNativeBle = false,
+  onConnectNativeBle,
+  onDisconnectNativeBle,
+}: BluetoothManagerProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [deviceName, setDeviceName] = useState<string>('');
-  const [isBluetoothAvailable, setIsBluetoothAvailable] = useState(false);
   const [simulationMode, setSimulationMode] = useState(false);
   const [customLogo, setCustomLogo] = useState<string>(logoUrl || '');
 
   useEffect(() => {
-    const isSecureContext = window.isSecureContext;
-    const hasBluetooth = 'bluetooth' in navigator;
-    setIsBluetoothAvailable(hasBluetooth && isSecureContext);
+    // Le Bluetooth est géré côté natif Android via Capacitor (pas via Web Bluetooth).
+    // En mode navigateur (dev), on bascule en simulation.
   }, []);
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,85 +46,35 @@ export function BluetoothManager({ onConnectionChange, logoUrl, showTooltips, on
     setSimulationMode(true);
     setIsConnected(true);
     setDeviceName('Mode Simulation');
-    onConnectionChange(true, null);
+    onConnectionChange(true);
   };
 
-  const connectToBluetooth = async () => {
-    if (!isBluetoothAvailable) {
-      console.warn('Bluetooth not available - use simulation mode instead');
+  const connectToBle = async () => {
+    if (!canUseNativeBle || !onConnectNativeBle) {
       return;
     }
-
     try {
-      const device = await navigator.bluetooth!.requestDevice({
-        acceptAllDevices: true,
-        optionalServices: ['generic_access', 'generic_attribute', '12345678-1234-5678-1234-56789abcdef0']
-      });
-
-      if (!device.gatt) {
-        console.error('GATT not available');
-        return;
-      }
-
-      const server = await device.gatt.connect();
-      setDeviceName(device.name || 'Unknown Device');
-      
-      const serviceUUID = '12345678-1234-5678-1234-56789abcdef0';
-      let service;
-      
-      try {
-        service = await server.getPrimaryService(serviceUUID);
-      } catch (e) {
-        console.error('Service not found, trying to list available services...');
-        const services = await server.getPrimaryServices();
-        console.log('Available services:', services);
-        
-        if (services.length > 0) {
-          service = services[0];
-          console.log('Using first available service:', service.uuid);
-        } else {
-          console.error('No Bluetooth services found on this device');
-          return;
-        }
-      }
-      
-      const characteristicUUID = '12345678-1234-5678-1234-56789abcdef1';
-      let characteristic;
-      
-      try {
-        characteristic = await service.getCharacteristic(characteristicUUID);
-      } catch (e) {
-        const characteristics = await service.getCharacteristics();
-        console.log('Available characteristics:', characteristics);
-        
-        if (characteristics.length > 0) {
-          characteristic = characteristics[0];
-          console.log('Using first available characteristic:', characteristic.uuid);
-        } else {
-          console.error('No characteristics found');
-          return;
-        }
-      }
-      
+      await onConnectNativeBle();
       setIsConnected(true);
       setSimulationMode(false);
-      onConnectionChange(true, characteristic);
-      
-      device.addEventListener('gattserverdisconnected', () => {
-        setIsConnected(false);
-        setDeviceName('');
-        setSimulationMode(false);
-        onConnectionChange(false, null);
-      });
-      
+      setDeviceName('Robot (BLE)');
+      onConnectionChange(true);
     } catch (err: any) {
-      if (err.name !== 'SecurityError') {
-        console.error('Bluetooth error:', err.message);
-      }
-      
+      console.error('BLE error:', err?.message ?? err);
       setIsConnected(false);
       setSimulationMode(false);
-      onConnectionChange(false, null);
+      onConnectionChange(false);
+    }
+  };
+
+  const disconnectBle = async () => {
+    try {
+      await onDisconnectNativeBle?.();
+    } finally {
+      setIsConnected(false);
+      setDeviceName('');
+      setSimulationMode(false);
+      onConnectionChange(false);
     }
   };
 
@@ -162,14 +121,23 @@ export function BluetoothManager({ onConnectionChange, logoUrl, showTooltips, on
             <Bluetooth className="w-6 h-6 text-gray-400" />
           )}
           
-          {isBluetoothAvailable ? (
-            <Button
-              onClick={connectToBluetooth}
-              disabled={isConnected}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700"
-            >
-              {isConnected ? 'Connecté' : 'Connecter Bluetooth'}
-            </Button>
+          {canUseNativeBle ? (
+            isConnected && !simulationMode ? (
+              <Button
+                onClick={disconnectBle}
+                className="bg-gray-700 hover:bg-gray-600"
+              >
+                Déconnecter
+              </Button>
+            ) : (
+              <Button
+                onClick={connectToBle}
+                disabled={isConnected}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700"
+              >
+                {isConnected ? 'Connecté' : 'Connecter BLE'}
+              </Button>
+            )
           ) : (
             <Button
               onClick={enableSimulationMode}
@@ -208,10 +176,10 @@ export function BluetoothManager({ onConnectionChange, logoUrl, showTooltips, on
           </div>
         )}
         
-        {!isConnected && !isBluetoothAvailable && (
+        {!isConnected && !canUseNativeBle && (
           <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-950/50 border border-blue-700 rounded-md">
             <Info className="w-3 h-3 text-blue-400" />
-            <span className="text-xs text-blue-300">BT non dispo</span>
+            <span className="text-xs text-blue-300">BLE natif non dispo</span>
           </div>
         )}
       </div>
