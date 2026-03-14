@@ -1,0 +1,39 @@
+{
+  "controls": {
+    "leftStick": {
+      "label": "Joystick Gauche",
+      "description": "Contrôle de déplacement - Avant/Arrière: Marcher | Gauche/Droite: Direction de marche",
+      "position": "right"
+    },
+    "rightStick": {
+      "label": "Joystick Droit",
+      "description": "Contrôle de la tête - Haut/Bas: Incliner tête | Gauche/Droite: Tourner tête",
+      "position": "left"
+    },
+    "buttons": {
+      "label": "Boutons A/B/X/Y",
+      "description": "Y: Jouer son aléatoire | X: Activer LEDs | B: Geste de salut | A: Squat/Accroupi",
+      "position": "left"
+    },
+    "dpad": {
+      "label": "D-PAD",
+      "description": "Pad directionnel - Haut: Mode turbo | Bas: Mode lent | Gauche/Droite: Tourner sur place",
+      "position": "right"
+    },
+    "triggers": {
+      "label": "LT / RT",
+      "description": "Gâchettes - LT: Ralentir la vitesse | RT: Accélérer la vitesse",
+      "position": "right"
+    },
+    "bumpers": {
+      "label": "LB / RB",
+      "description": "",
+      "position": "top"
+    },
+    "systemButtons": {
+      "label": "START / SELECT",
+      "description": "START: Démarrer le robot | SELECT: Mode sécurité / Pause",
+      "position": "left"
+    }
+  }
+}
