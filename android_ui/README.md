@@ -1,11 +1,19 @@
+# Interface Android (bundle Figma)
 
-  # Interface de manette Xbox
+Bundle généré depuis Figma : `Interface de manette Xbox`  
+Source : `https://www.figma.com/design/hDRmNe5rpwWgXgk8W2ur6I/Interface-de-manette-Xbox`
 
-  This is a code bundle for Interface de manette Xbox. The original project is available at https://www.figma.com/design/hDRmNe5rpwWgXgk8W2ur6I/Interface-de-manette-Xbox.
+## Lancer en dev
 
-  ## Running the code
+```bash
+npm i
+npm run dev
+```
 
-  Run `npm i` to install the dependencies.
+## Contrat d’échange (actuel)
 
-  Run `npm run dev` to start the development server.
-  
+L’UI maintient un `ControllerState` et l’envoie en JSON vers le robot (voir `src/app/App.tsx`), via Web Bluetooth (voir `src/app/components/BluetoothManager.tsx`).
+
+## Note Web Bluetooth (Android)
+
+Web Bluetooth requiert un **contexte sécurisé** (HTTPS, ou `http://localhost` en dev). En production, si tu embarques cette UI dans une app Android, le plus robuste est souvent d’utiliser le **BLE natif** (et d’éviter les limites WebView).
