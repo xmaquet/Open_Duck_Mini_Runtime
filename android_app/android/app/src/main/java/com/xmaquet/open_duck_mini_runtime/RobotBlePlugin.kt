@@ -11,6 +11,7 @@ import android.os.ParcelUuid
 import com.getcapacitor.*
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.util.UUID
