@@ -54,7 +54,12 @@ def main() -> None:
     try:
         from bluez_peripheral.advert import Advertisement
         from bluez_peripheral.agent import NoIoAgent
-        from bluez_peripheral.gatt import Service, characteristic, CharacteristicFlags as CharFlags
+        # 0.1.7 : Service n’est pas dans bluez_peripheral.gatt.__init__ ; chemins stables depuis la doc officielle.
+        from bluez_peripheral.gatt.characteristic import (
+            characteristic,
+            CharacteristicFlags as CharFlags,
+        )
+        from bluez_peripheral.gatt.service import Service
         from bluez_peripheral.util import Adapter, get_message_bus
     except ImportError as e:
         print(
