@@ -24,14 +24,10 @@ WITH_CONTROL="${WITH_CONTROL:-1}"
 
 echo "[1/8] apt update + prérequis système"
 sudo apt update -y
-sudo apt install -y git python3 python3-venv python3-pip
-
-if [[ "$WITH_CONTROL" == "1" ]]; then
-  echo "[1b] Installation dépendances système pour pygame/SDL (manette)"
-  sudo apt install -y pkg-config \
-    libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-    libfreetype6-dev libjpeg-dev zlib1g-dev libasound2-dev libportmidi-dev
-fi
+sudo apt install -y git python3 python3-venv python3-pip pkg-config python3-dev swig \
+  python3-numpy python3-scipy python3-pygame python3-opencv \
+  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+  libfreetype6-dev libportmidi-dev libjpeg-dev libpng-dev
 
 echo "[2/8] Clonage/Mise à jour du dépôt"
 if [[ ! -d "$DIR/.git" ]]; then
@@ -44,16 +40,18 @@ else
   popd >/dev/null
 fi
 
-echo "[3/8] Création/Activation de l’environnement virtuel"
+echo "[3/8] Création/Activation de l’environnement virtuel (system-site-packages + TMPDIR hors tmpfs)"
+mkdir -p "${HOME}/tmp"
+export TMPDIR="${HOME}/tmp"
 pushd "$DIR" >/dev/null
 if [[ ! -d ".venv" ]]; then
-  python3 -m venv .venv
+  python3 -m venv .venv --system-site-packages
 fi
 source .venv/bin/activate
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip setuptools wheel
 
 echo "[4/8] Installation du runtime (editable)"
-pip install -e .
+pip install --no-cache-dir -e .
 
 echo "[5/8] Ajustements spécifiques (Raspberry Pi 5 uniquement)"
 if [[ -r /proc/device-tree/model ]] && grep -qi "Raspberry Pi 5" /proc/device-tree/model; then
@@ -64,7 +62,7 @@ fi
 
 if [[ "$WITH_CONTROL" == "1" ]]; then
   echo "[6/8] Installation du support manette (pygame) via l'extra [control]"
-  pip install -e .[control]
+  pip install --no-cache-dir -e ".[control]"
 fi
 
 echo "[7/8] duck_config.json (création si absent)"

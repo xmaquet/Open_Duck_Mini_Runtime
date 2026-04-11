@@ -1,4 +1,8 @@
 __pycache__/
-mini_bdx_runtime.egg-info/
-build
-dist
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+pip-wheel-metadata/
+.venv/

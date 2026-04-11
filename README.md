@@ -100,23 +100,77 @@ https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp?view=all
 
 ## Install the runtime
 
-### Make a virtual environment and activate it
+### Prérequis (Debian / Raspberry Pi OS, ex. Trixie)
+
+**Python** : 3.11 à 3.13 (déclaré dans `setup.cfg`).
+
+**Dépendances système** (SDL / headers pour pygame, numpy & scipy via apt pour limiter les compilations) :
+
+```bash
+sudo apt update
+sudo apt install -y \
+  pkg-config \
+  python3-venv python3-dev swig \
+  python3-numpy python3-scipy python3-pygame python3-opencv \
+  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+  libfreetype6-dev libportmidi-dev libjpeg-dev libpng-dev
+```
+
+**Espace temporaire pip** : sur Raspberry Pi, `/tmp` est souvent un **tmpfs** (RAM) et peut saturer lors des installs `pip` (wheels, builds). Utiliser un répertoire sur la carte SD :
+
+```bash
+mkdir -p ~/tmp
+export TMPDIR=$HOME/tmp
+```
+
+Tu peux ajouter `export TMPDIR=$HOME/tmp` à ton `~/.bashrc` pour que ce soit permanent.
+
+**Environnement virtuel recommandé** : avec paquets scientifiques déjà fournis par Debian, créer le venv avec **`--system-site-packages`** évite de recompiler numpy / pygame / OpenCV :
+
+```bash
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+pip install --no-cache-dir -e .
+```
+
+**Installation automatisée** (depuis la racine du dépôt cloné) :
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+**Extras pip** (optionnels) :
+
+- `.[control]` — pygame côté pip si tu n’utilises pas uniquement le paquet système (manette / `xbox_controller`).
+- `.[rl]` — **onnxruntime** pour la marche RL (`v2_rl_walk_mujoco.py`, `onnx_infer`).
+- `.[hardware]` — bus Feetech / IMU (`rustypot`, `pypot`, Adafruit BNO055).
+
+Exemple :
+
+```bash
+pip install --no-cache-dir -e ".[control,rl]"
+```
+
+### Méthode classique (virtualenvwrapper)
 
 ```bash
 mkvirtualenv -p python3 open-duck-mini-runtime
 workon open-duck-mini-runtime
 ```
 
-Clone this repository on your rasp, cd into the repo, then :
+Clone ce dépôt sur le Pi, puis :
 
 ```bash
 git clone https://github.com/apirrone/Open_Duck_Mini_Runtime
 cd Open_Duck_Mini_Runtime
 git checkout v2
+# Recommandé : venv --system-site-packages + TMPDIR (voir ci-dessus)
 pip install -e .
 ```
 
-In Raspberry Pi 5, you need to perform the following operations
+### Raspberry Pi 5 (GPIO)
 
 ```bash
 pip uninstall -y RPi.GPIO
@@ -162,6 +216,12 @@ python find_soft_offsets.py
 ```
 
 ## Run the walk !
+
+Installe d’abord l’extra **RL** (wheel `onnxruntime`, voir `setup.cfg` → `[options.extras_require]` → `rl`) :
+
+```bash
+pip install --no-cache-dir -e ".[rl]"
+```
 
 Download the [latest policy checkpoint ](https://github.com/apirrone/Open_Duck_Mini/blob/v2/BEST_WALK_ONNX_2.onnx) and copy it to your duck.
 

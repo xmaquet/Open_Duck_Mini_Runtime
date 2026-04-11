@@ -28,7 +28,10 @@ WITH_CONTROL="${WITH_CONTROL:-0}"
 
 echo "[1/6] apt update + prérequis système"
 sudo apt update -y
-sudo apt install -y git python3 python3-venv python3-pip
+sudo apt install -y git python3 python3-venv python3-pip pkg-config python3-dev swig \
+  python3-numpy python3-scipy python3-pygame python3-opencv \
+  libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+  libfreetype6-dev libportmidi-dev libjpeg-dev libpng-dev
 
 if [[ ! -d "$DIR/.git" ]]; then
   echo "[2/6] Clonage du dépôt ($REPO) dans '$DIR' (branche: $BRANCH)"
@@ -42,24 +45,22 @@ else
   popd >/dev/null
 fi
 
-echo "[3/6] Création/activation de l'environnement virtuel"
+echo "[3/6] Création/activation de l'environnement virtuel (system-site-packages + TMPDIR hors tmpfs)"
+mkdir -p "${HOME}/tmp"
+export TMPDIR="${HOME}/tmp"
 pushd "$DIR" >/dev/null
 if [[ ! -d ".venv" ]]; then
-  python3 -m venv .venv
+  python3 -m venv .venv --system-site-packages
 fi
 source .venv/bin/activate
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip setuptools wheel
 
 echo "[4/6] Installation du runtime (editable)"
-pip install -e .
+pip install --no-cache-dir -e .
 
 if [[ "$WITH_CONTROL" == "1" ]]; then
   echo "[5/6] Installation support manette (pygame) via l'extra [control]"
-  echo "      Installation des dépendances système nécessaires à pygame/SDL..."
-  sudo apt install -y pkg-config \
-    libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-    libfreetype6-dev libjpeg-dev zlib1g-dev libasound2-dev libportmidi-dev
-  pip install -e .[control]
+  pip install --no-cache-dir -e ".[control]"
 else
   echo "[5/6] Étape support manette ignorée (WITH_CONTROL != 1)"
 fi
