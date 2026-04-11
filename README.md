@@ -191,6 +191,7 @@ Le script installe `git` si besoin, clone ou met à jour le dépôt (**sans `git
 - `.[control]` — pygame côté pip si tu n’utilises pas uniquement le paquet système (manette ; commande **`bdx-xbox-controller`** après install).
 - `.[rl]` — **onnxruntime** pour la marche RL (`v2_rl_walk_mujoco.py`, `onnx_infer`).
 - `.[hardware]` — bus Feetech / IMU (`rustypot`, `pypot`, Adafruit BNO055).
+- `.[ble]` — **serveur GATT** sur la Pi pour l’app Android (`bdx-ble-robot`, `bluez-peripheral` + BlueZ).
 
 Exemple :
 

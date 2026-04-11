@@ -85,3 +85,22 @@ Pour minimiser les changements, on conserve les UUIDs utilisés dans le prototyp
 L’app Android écrit des `ControllerFrame` sur TX.  
 Le robot peut envoyer des logs/états sur RX (JSON libre, ex. `{ "type": "log", "level": "info", "message": "..." }`).
 
+## Réception côté robot (Python)
+
+- Module **`mini_bdx_runtime.xbox_bridge`** : parse les mêmes lignes JSON et expose une API **`AndroidBridgeController.get_last_command()`** identique à **`XBoxController.get_last_command()`** (à utiliser dans les scripts RL / tête à la place de la manette physique).
+- Transport **TCP** intégré (`python -m mini_bdx_runtime.xbox_bridge --tcp-port 8765`) : une ligne JSON UTF-8 terminée par `\n` par trame (compatible avec un relais Wi‑Fi ou un tunnel).
+
+### Serveur GATT sur la Raspberry Pi (BLE direct tablette ↔ Pi)
+
+- **Rôle** : la tablette est le **central BLE** (client), le Pi le **périphérique** (serveur GATT). Pas besoin de Wi‑Fi pour le contrôle : le lien est **Bluetooth Low Energy**.
+- **Paquets** : `bluez`, `pip install -e ".[ble]"` (apporte `bluez-peripheral`). Utilisateur dans le groupe `bluetooth` : `sudo usermod -aG bluetooth $USER` (déconnexion / reconnexion).
+- **Commande** : `bdx-ble-robot` ou `python -m mini_bdx_runtime.ble_gatt_server` (options `--name`, `--dump`, `--no-agent`, etc.).
+- **Si `does not provide the extra 'ble'`** : le `setup.cfg` du clone est trop ancien → `git pull`, ou installe les deps à la main puis réinstalle le paquet pour les scripts console :
+  ```bash
+  pip install --no-cache-dir -r extras/requirements-ble.txt
+  pip install --no-cache-dir -e .
+  ```
+  Ensuite `bdx-ble-robot` est dans `.venv/bin/` ; sinon : `python -m mini_bdx_runtime.ble_gatt_server --dump`.
+- **Pairing** : l’agent `NoIoAgent` peut exiger des droits élevés ; en cas d’échec, lancer avec `sudo` ou `--no-agent` si le pairing est déjà en place.
+- L’app Android scanne le **service UUID** ci-dessus puis écrit sur **TX** ; le Pi réassemble les octets (écritures longues / chunks) et met à jour l’état consommé par `AndroidBridgeController`.
+

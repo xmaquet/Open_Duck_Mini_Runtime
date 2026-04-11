@@ -1,0 +1,4 @@
+# Dépendances serveur GATT (tablette Android → Pi).
+# Usage si « pip install -e ".[ble]" » signale que l’extra « ble » est inconnu (dépôt pas à jour) :
+#   pip install --no-cache-dir -r extras/requirements-ble.txt
+bluez-peripheral>=1.0.0,<3
