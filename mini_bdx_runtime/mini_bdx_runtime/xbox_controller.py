@@ -27,6 +27,14 @@ class XBoxController:
         self.last_left_trigger = 0.0
         self.last_right_trigger = 0.0
         pygame.init()
+        pygame.joystick.init()
+        n = pygame.joystick.get_count()
+        if n < 1:
+            raise RuntimeError(
+                "Aucun joystick détecté par pygame. Vérifie : (1) manette appairée et connectée en Bluetooth, "
+                "(2) tu es bien revenu au shell bash après `exit` dans bluetoothctl — pas d’invite [bluetooth]>, "
+                "(3) extra pip `.[control]` ou paquet `python3-pygame` installé."
+            )
         self.p1 = pygame.joystick.Joystick(0)
         self.p1.init()
         print(f"Loaded joystick with {self.p1.get_numaxes()} axes.")
@@ -212,9 +220,13 @@ class XBoxController:
             self.last_right_trigger,
         )
 
-if __name__ == "__main__":
+def main() -> None:
+    """Boucle de test : affiche en continu les dernières commandes (utilisé par `python -m` et la CLI `bdx-xbox-controller`)."""
     controller = XBoxController(20)
-
     while True:
         print(controller.get_last_command())
         time.sleep(0.05)
+
+
+if __name__ == "__main__":
+    main()

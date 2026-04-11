@@ -63,32 +63,65 @@ SUBSYSTEM=="usb-serial", DRIVER=="ftdi_sio", ATTR{latency_timer}="1"
 TODO
 
 
-### Setup xbox one controller over bluetooth
+### Xbox Controller Setup (Bluetooth)
 
-Turn your xbox one controller on and set it in pairing mode by long pressing the sync button on the top of the controller.
+Guide détaillé : **[docs/xbox_controller_setup.md](docs/xbox_controller_setup.md)**  
+Script de test : **`tools/test_xbox_controller.sh`**
 
-Run the following commands on the rasp :
+**Prérequis** : Bluetooth actif ; paquet **`bluez`** (`sudo apt install bluez`) pour `bluetoothctl`. Pygame : `python3-pygame` / venv `--system-site-packages` ou `pip install -e ".[control]"`.
+
+**Important** : `bluetoothctl` ouvre un **shell interactif** (invite du type `[bluetooth]#`). Tant que tu y es, **`python ...` ne s’exécute pas** comme sous bash. Il faut d’abord quitter avec **`exit`**, puis lancer Python.
+
+1. Manette en mode appairage (sync, LED clignotante).
+2. Dans bash :
 
 ```bash
 bluetoothctl
+```
+
+3. Dans bluetoothctl :
+
+```text
+power on
+agent on
+default-agent
 scan on
 ```
 
-Wait for the controller to appear in the list, then run :
+4. Repère la ligne avec la manette (ex. « Xbox Wireless Controller ») et l’adresse `XX:XX:XX:XX:XX:XX`.
 
-```bash
-pair <controller_mac_address>
-trust <controller_mac_address>
-connect <controller_mac_address>
+5. Toujours **dans bluetoothctl** :
+
+```text
+pair XX:XX:XX:XX:XX:XX
+trust XX:XX:XX:XX:XX:XX
+connect XX:XX:XX:XX:XX:XX
 ```
 
-The led on the controller should stop blinking and stay on.
+6. LED fixe = connecté. Puis **`exit`** pour revenir au shell normal.
 
-You can test that it's working by running
+7. Depuis la **racine du dépôt**, avec le venv activé :
 
 ```bash
-python3 mini_bdx_runtime/mini_bdx_runtime/xbox_controller.py
+source .venv/bin/activate
+pip install -e ".[control]"   # si pygame n’est pas déjà disponible
+python -m mini_bdx_runtime.xbox_controller
 ```
+
+Équivalents : commande installée **`bdx-xbox-controller`**, ou **`bash tools/test_xbox_controller.sh`**.
+
+#### Dépannage (manette Xbox / Bluetooth)
+
+| Problème | Que faire |
+|----------|-----------|
+| `Invalid command` ou erreur bizarre en tapant `python` | Tu es encore dans **bluetoothctl** → tape **`exit`**. |
+| « Fichier introuvable » avec un chemin vers `xbox_controller.py` | Utilise plutôt **`python -m mini_bdx_runtime.xbox_controller`** (après `pip install -e .`). |
+| Retrouver le fichier dans le clone | `find . -name "xbox_controller.py"` |
+| Manette vue au scan mais pygame ne voit rien | `connect` non fait, manette endormie, ou pas sorti de bluetoothctl. |
+| Message « Aucun joystick détecté » | Voir [docs/xbox_controller_setup.md](docs/xbox_controller_setup.md) ; vérifier Bluetooth + extra `.[control]`. |
+| SSH sans écran | `export SDL_VIDEODRIVER=dummy` (fait automatiquement par `tools/test_xbox_controller.sh`). |
+
+**Dépendances** : **pygame** (joystick Linux) ; pas de root nécessaire en général si `/dev/input/js*` est lisible par ton utilisateur.
 
 ## Speaker wiring and configuration
 Follow this tutorial
@@ -109,7 +142,7 @@ https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp?view=all
 ```bash
 sudo apt update
 sudo apt install -y \
-  pkg-config \
+  pkg-config bluez \
   python3-venv python3-dev swig \
   python3-numpy python3-scipy python3-pygame python3-opencv \
   libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
@@ -134,16 +167,28 @@ python -m pip install --upgrade pip setuptools wheel
 pip install --no-cache-dir -e .
 ```
 
-**Installation automatisée** (depuis la racine du dépôt cloné) :
+**Installation automatisée** (`install.sh`) :
+
+- **Depuis un dépôt déjà cloné** (le script détecte le `.git` à côté de lui et travaille dans ce dossier) :
 
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
+- **Machine neuve** (clone dans `~/Open_Duck_Mini_Runtime` par défaut, branche `v2`) : télécharge le script puis lance-le, ou exporte les variables avant :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xmaquet/Open_Duck_Mini_Runtime/v2/install.sh -o install.sh
+bash install.sh
+# optionnel : REPO_DIR, REPO_URL, BRANCH, GIT_SHALLOW=0, SKIP_GIT_PULL=1 — voir l’en-tête de install.sh
+```
+
+Le script installe `git` si besoin, clone ou met à jour le dépôt (**sans `git pull` si le working tree n’est pas propre**), copie `example_config.json` vers `~/duck_config.json` seulement si absent, puis apt / venv / `pip install -e .` et contrôles `numpy` / `pygame` / `cv2`.
+
 **Extras pip** (optionnels) :
 
-- `.[control]` — pygame côté pip si tu n’utilises pas uniquement le paquet système (manette / `xbox_controller`).
+- `.[control]` — pygame côté pip si tu n’utilises pas uniquement le paquet système (manette ; commande **`bdx-xbox-controller`** après install).
 - `.[rl]` — **onnxruntime** pour la marche RL (`v2_rl_walk_mujoco.py`, `onnx_infer`).
 - `.[hardware]` — bus Feetech / IMU (`rustypot`, `pypot`, Adafruit BNO055).
 

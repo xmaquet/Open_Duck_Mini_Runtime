@@ -28,7 +28,7 @@ WITH_CONTROL="${WITH_CONTROL:-0}"
 
 echo "[1/6] apt update + prérequis système"
 sudo apt update -y
-sudo apt install -y git python3 python3-venv python3-pip pkg-config python3-dev swig \
+sudo apt install -y git python3 python3-venv python3-pip pkg-config bluez python3-dev swig \
   python3-numpy python3-scipy python3-pygame python3-opencv \
   libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
   libfreetype6-dev libportmidi-dev libjpeg-dev libpng-dev
@@ -70,8 +70,9 @@ echo
 echo "Pour activer l'environnement et utiliser le runtime :"
 echo "  source .venv/bin/activate"
 if [[ "$WITH_CONTROL" == "1" ]]; then
-  echo "Pour tester la lecture d'une manette :"
-  echo "  python -m mini_bdx_runtime.xbox_controller"
+  echo "Pour tester la lecture d'une manette (après appairage Bluetooth, voir README / docs/xbox_controller_setup.md) :"
+  echo "  bash tools/test_xbox_controller.sh"
+  echo "  ou : python -m mini_bdx_runtime.xbox_controller"
 fi
 popd >/dev/null
 
