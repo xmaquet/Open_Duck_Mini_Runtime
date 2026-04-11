@@ -61,6 +61,7 @@ def main() -> None:
         )
         from bluez_peripheral.gatt.service import Service
         from bluez_peripheral.util import Adapter, get_message_bus
+        from dbus_next.errors import InterfaceNotFoundError
     except ImportError as e:
         print(
             "Dépendance BLE manquante : pip install --no-cache-dir -e \".[ble]\"\n"
@@ -75,6 +76,12 @@ def main() -> None:
     ap.add_argument("--head-only", action="store_true", help="only_head_control")
     ap.add_argument("--dump", action="store_true", help="Afficher get_last_command() périodiquement")
     ap.add_argument("--no-agent", action="store_true", help="Ne pas enregistrer NoIoAgent (si pairing déjà géré)")
+    ap.add_argument(
+        "--dbus-adapter",
+        default=None,
+        metavar="PATH",
+        help="Chemin D-Bus explicite (ex. /org/bluez/hci0). Sinon : premier objet sous /org/bluez qui expose org.bluez.Adapter1.",
+    )
     args = ap.parse_args()
 
     from mini_bdx_runtime.xbox_bridge import AndroidBridgeController, VirtualJoystickState
@@ -123,8 +130,39 @@ def main() -> None:
 
     async def run() -> None:
         bus = await get_message_bus()
+
+        async def _resolve_adapter() -> Adapter:
+            # Adapter.get_first() (bluez-peripheral 0.1.7) suppose que tout enfant de /org/bluez est un hci ;
+            # BlueZ 5.8x ajoute d’autres nœuds sans org.bluez.Adapter1 → InterfaceNotFoundError.
+            if args.dbus_adapter:
+                paths = [args.dbus_adapter]
+            else:
+                root = await bus.introspect("org.bluez", "/org/bluez")
+                paths = [f"/org/bluez/{n.name}" for n in root.nodes]
+            last: BaseException | None = None
+            for path in paths:
+                intro = await bus.introspect("org.bluez", path)
+                proxy = bus.get_proxy_object("org.bluez", path, intro)
+                try:
+                    return Adapter(proxy)
+                except InterfaceNotFoundError as e:
+                    last = e
+                    continue
+            raise RuntimeError(
+                "Aucun adaptateur Bluetooth (org.bluez.Adapter1). "
+                "Vérifie : sudo systemctl start bluetooth ; bluetoothctl power on. "
+                "Sinon essaie : --dbus-adapter /org/bluez/hci0"
+            ) from last
+
+        adapter = await _resolve_adapter()
+        try:
+            if not await adapter.get_powered():
+                await adapter.set_powered(True)
+        except Exception as e:
+            print(f"[ble_gatt] Impossible d’allumer l’adaptateur ({e}).", file=sys.stderr)
+
         srv = RobotDuckGattService(shared_virtual)
-        await srv.register(bus)
+        await srv.register(bus, adapter=adapter)
 
         if not args.no_agent:
             try:
@@ -136,7 +174,6 @@ def main() -> None:
                     file=sys.stderr,
                 )
 
-        adapter = await Adapter.get_first(bus)
         advert = Advertisement(
             args.name,
             [SERVICE_UUID],
