@@ -1,54 +1,58 @@
-# 📝 Note de version — xmaquet/Open_Duck_Mini_Runtime
-**Version initiale du fork – août 2025**  
-Fork basé sur : [apirrone/Open_Duck_Mini_Runtime](https://github.com/apirrone/Open_Duck_Mini_Runtime)
+# Notes de version — xmaquet/Open_Duck_Mini_Runtime
+
+Fork de référence : [apirrone/Open_Duck_Mini_Runtime](https://github.com/apirrone/Open_Duck_Mini_Runtime)
 
 ---
 
-## 🎯 Objectif du fork
+## Branche `feature/bdx_webui` (2026) — contrôle tablette Android en BLE
 
-Ce dépôt est une copie (fork) du runtime du robot **Open Duck Mini (v2)**, développé pour fonctionner sur un Raspberry Pi Zero 2W avec une architecture modulaire Python.  
-L’objectif de ce fork est de :
-- documenter et comprendre l’architecture du runtime original,
-- expérimenter des adaptations pédagogiques ou industrielles,
-- tester des extensions matérielles ou logicielles,
-- potentiellement réintégrer des améliorations via des **pull requests**.
+### Objectif
 
----
+Permettre de piloter l’Open Duck Mini depuis une **tablette Android** via **Bluetooth Low Energy** direct (tablette = central BLE, Raspberry Pi = serveur GATT), avec un **contrat JSON** aligné sur la manette Xbox existante (`get_last_command()`, `Buttons`, triggers).
 
-## 🔍 Analyse technique du dépôt original
+### Réalisations principales
 
-Le projet Open Duck Mini Runtime est un environnement embarqué destiné à piloter un robot quadrupède léger via un Raspberry Pi. Il repose sur une architecture Python modulaire, des scripts de calibration et des outils de diagnostic intégrés.
+- **Protocole** (`docs/protocol.md`) : schéma `ControllerFrame` v1, UUID GATT fixes, conventions de signe et reconstruction côté robot.
+- **UI web** (`android_ui/`) : transport TypeScript vers le natif, envoi ~**20 Hz**, **clamp**, deadzone triggers, **watchdog** et **arrêt d’urgence** côté logique UI ; retrait du flux **Web Bluetooth** au profit du natif.
+- **Application Android** (`android_app/`) : projet **Capacitor** ; build/sync depuis `android_ui/dist` ; plugin Kotlin **RobotBlePlugin** (scan, connect, write, notify, permissions, reconnexion).
+- **Runtime Pi** :
+  - `mini_bdx_runtime/ble_gatt_server.py` : serveur GATT **bluez-peripheral** 0.1.x, service TX/RX, réassemblage d’écritures fragmentées, option `--dump`, **`--dbus-adapter`** pour BlueZ 5.8x (nœuds sous `/org/bluez` sans `Adapter1`).
+  - `mini_bdx_runtime/xbox_bridge.py` : **`AndroidBridgeController`** + **`VirtualJoystickState`** ; option TCP `--tcp-port`.
+- **Packaging** : extra pip **`.[ble]`** avec `bluez-peripheral>=0.1.7,<0.2` (correction : pas de release 1.x sur PyPI) ; script console **`bdx-ble-robot`** ; fichier secours **`extras/requirements-ble.txt`**.
+- **Documentation** : `docs/architecture.md`, `README.md` / `README_FR.md`, `docs/bdx_bluetooth_control.md`, ce fichier.
 
-### ✔️ Structure principale
-- `mini_bdx_runtime/` : cœur du runtime (boucle principale, contrôle des moteurs, communication, capteurs, etc.).
-- `scripts/` : scripts CLI pour calibrer, tester ou démarrer différents composants (moteurs, IMU, manette, modèle ONNX, etc.).
+### Utilisation rapide (Pi)
 
-### 🧩 Fonctionnalités clés
-- **Support IMU + moteurs via I²C et USB**, avec configuration fine des règles `udev`.
-- **Contrôle par manette Xbox One** via Bluetooth, avec mappage interactif des commandes (marche, rotation, sprint, etc.).
-- **Chargement et exécution d’un modèle de marche** pré-entraîné (renforcement via MuJoCo → export ONNX).
-- **Système de calibration des joints** (`find_soft_offsets.py`) avec mise à jour dynamique du fichier `duck_config.json`.
-- **Interface audio via haut-parleur I²S**, configurable dans le JSON.
+```bash
+sudo apt install bluez
+sudo usermod -aG bluetooth $USER   # puis re-login
+pip install --no-cache-dir -e ".[ble]"
+bdx-ble-robot --dump
+```
 
-### ⚙️ Outils et configuration
-- Installation via environnement virtuel Python (`pip install -e .`).
-- Support de Raspberry Pi 0/2/3/5 avec modules GPIO spécifiques (`RPi.GPIO` ou `lgpio`).
-- Guide très détaillé dans le README : installation complète, configuration matérielle, pairing Bluetooth, etc.
+### Dépôt sur la machine embarquée
 
----
-
-## 📌 Intérêt du fork
-
-Ce fork permettra d’explorer :
-- une adaptation à un **contexte pédagogique ou démonstratif** (ex. escape game robotisé),
-- des **modifications du comportement du robot** (posture, parcours, interactions vocales…),
-- une **simplification ou industrialisation** du runtime pour intégration dans un autre système (ex. kiosque interactif, vitrine d’exposition),
-- l'intégration éventuelle dans un système de **télémétrie, de logs ou de contrôle à distance** (ESP32, Wi-Fi, etc.).
+Si `origin` pointe encore vers **apirrone**, ajouter le remote **xmaquet** et tirer **`feature/bdx_webui`** pour disposer de l’extra `ble` et des scripts.
 
 ---
 
-## 📎 Prochaine étape
+## Version initiale du fork — août 2025
 
-- [ ] Renommer et commenter les scripts principaux selon leur usage dans le nouveau contexte.
-- [ ] Ajouter une documentation pour les cas d’usage spécifiques (par exemple : Open Duck Mini en mode "démonstrateur embarqué").
-- [ ] Ajouter une nouvelle branche pour expérimentations (`xmaquet/dev`).
+Fork basé sur le runtime **Open Duck Mini (v2)** pour Raspberry Pi (Pi Zero 2W, Pi 5, etc.).
+
+### Objectifs initiaux du fork
+
+- Documenter et adapter l’architecture du runtime d’origine.
+- Expérimenter des extensions (pédagogie, démo, industrialisation légère).
+- Proposer des PR vers le dépôt amont si pertinent.
+
+### Fonctionnalités héritées du dépôt amont (rappel)
+
+- IMU, moteurs (Feetech / bus), calibration (`find_soft_offsets.py`), `duck_config.json`.
+- Contrôle **manette Xbox** Bluetooth + pygame.
+- Marche RL via modèle **ONNX** (`v2_rl_walk_mujoco.py`, extra `.[rl]`).
+- Audio I²S, scripts de test moteurs / IMU.
+
+### Pistes documentées plus tard dans le fork
+
+- Cas d’usage « démonstrateur », télémétrie, intégrations tierces.

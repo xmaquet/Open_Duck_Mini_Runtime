@@ -1,47 +1,83 @@
 ## Architecture Android (UI tablette) → Robot
 
-Objectif : remplacer la manette Xbox physique par une UI tactile Android, tout en restant aligné sur le modèle runtime existant.
+Objectif : piloter le robot depuis une **tablette Android** avec une UI tactile, en restant aligné sur le modèle runtime existant (`xbox_controller.py` / `Buttons` / `get_last_command()`), **sans** dépendre du Web Bluetooth dans la WebView.
 
-### Composants
+### Vue d’ensemble des composants
 
-- **`android_ui/`** : frontend existant (React + TypeScript + Vite) avec composants manette.
-- **`android_app/`** : wrapper Capacitor (Android) qui embarque les assets web buildés.
-- **Plugin natif** : `android_app/android/.../RobotBlePlugin.kt` (BLE en Kotlin).
-- **Runtime robot** : Python (ce repo) – reçoit des commandes via BLE (côté robot à implémenter séparément).
+| Composant | Rôle |
+|-----------|------|
+| **`android_ui/`** | Frontend React + TypeScript + Vite : manette virtuelle, état `UiControllerState`, couche transport qui émet des **`ControllerFrameV1`** (~**20 Hz**), clamp des axes/triggers, logique **watchdog** et **arrêt d’urgence** (combo type Start+Select) côté UI / orchestration TS. |
+| **`android_app/`** | Projet **Capacitor** : embarque le build statique de `android_ui/dist`, ajoute le **plugin natif Kotlin** pour BLE. |
+| **`android_app/.../RobotBlePlugin.kt`** | Scan / connexion / **écriture GATT** sur la caractéristique TX, **notifications** RX, permissions Android modernes, **watchdog natif** et **reconnexion** best-effort. |
+| **`mini_bdx_runtime/ble_gatt_server.py`** | Sur la **Raspberry Pi** (Linux + BlueZ) : serveur GATT (`bluez-peripheral`), mêmes **UUID** que le plugin ; réassemble les écritures JSON et met à jour un **`VirtualJoystickState`**. |
+| **`mini_bdx_runtime/xbox_bridge.py`** | **`AndroidBridgeController`** : lit le joystick « virtuel » et expose **`get_last_command()`** comme la manette Xbox pour les scripts RL / tête / antennes. Option **TCP** (`--tcp-port`) pour un relais réseau. |
 
-### Flux de données
+### Flux de données (BLE direct)
 
-1. UI tactile met à jour un `UiControllerState` (sticks, boutons, triggers).
-2. Couche transport TS convertit vers une `ControllerFrameV1` (alignée sur `xbox_controller.py`) et envoie à **20 Hz**.
-3. Capacitor appelle le plugin natif Kotlin.
-4. Kotlin BLE écrit les frames sur la characteristic TX (GATT write).
-5. Robot consomme les frames et reconstruit `Buttons.triggered` + `last_commands`.
+1. L’utilisateur manipule l’UI dans l’app Android.
+2. La couche transport TS construit une ligne **JSON** conforme à **`docs/protocol.md`** (`v`, `axes`, `triggers`, `buttons`, `safety`, etc.).
+3. Capacitor appelle le plugin Kotlin ; celui-ci **écrit** sur la caractéristique **TX** (préférence write / write-without-response selon la config).
+4. Sur la Pi, **`ble_gatt_server`** reçoit les octets (y compris **écritures fragmentées**), décode un ou plusieurs objets JSON et appelle **`VirtualJoystickState.apply_json()`**.
+5. **`AndroidBridgeController`** (même processus quand lancé via `bdx-ble-robot`) interroge périodiquement l’état et produit les **mêmes `last_commands`** / événements boutons que la chaîne manette.
 
-### Sécurité robotique (implémentée côté Android)
+Schéma simplifié :
 
-- **Clamp** : axes \([-1,1]\), triggers \([0,1]\)
-- **Deadzone triggers** : 0.1 (comme `xbox_controller.py`)
-- **Watchdog natif** : si aucune frame reçue de l’UI depuis un délai, envoi périodique de commandes neutres
-- **E‑Stop** : combo `Start+Select` ⇒ `safety.estop=true` + commandes neutres (latched côté natif)
-- **Reconnexion** : tentative de reconnexion BLE si la connexion tombe (best-effort)
+```text
+[ UI TS ] → [ RobotBlePlugin (Kotlin) ] ──BLE GATT──► [ ble_gatt_server.py ]
+                                                              │
+                                                              ▼
+                                                    [ VirtualJoystickState ]
+                                                              │
+                                                              ▼
+                                                    [ AndroidBridgeController ]
+                                                              │
+                                                              ▼
+                                              scripts RL / tête (get_last_command)
+```
+
+### Sécurité et robustesse (rappel)
+
+**Côté Android (déjà intégré dans cette branche)**
+
+- **Clamp** : axes dans \([-1,1]\), triggers dans \([0,1]\).
+- **Deadzone** sur les triggers (alignée `xbox_controller.py`).
+- **Watchdog** : si l’UI ne fournit plus de frames, envoi de commandes **neutres** (natif + logique TS selon les couches).
+- **E-Stop** : `safety.estop` + combo matérielle/logicielle côté natif ; trames neutres lorsque actif.
+- **Reconnexion BLE** après perte de lien (best-effort).
+
+**Côté Pi**
+
+- Le robot doit traiter **`safety.estop`** comme une consigne **neutre** (voir `protocol.md`).
+- Droits **D-Bus** : utilisateur dans le groupe **`bluetooth`** ; service **`bluetooth`** actif (`systemctl status bluetooth`).
 
 ### Build / exécution Android
 
-Prérequis : Node.js + Android Studio.
+Prérequis : **Node.js**, **Android Studio**, SDK Android configuré.
 
-Depuis `android_app/` :
+Depuis **`android_app/`** :
 
-1. Build web:
-   - `npm run build:web`
-2. Copier assets web vers Capacitor:
-   - `npm run sync:web`
-3. Synchroniser Capacitor/Android:
-   - `npm run cap:sync`
-4. Ouvrir Android Studio:
-   - `npm run android:open`
+1. Build de l’UI web : `npm run build:web` (compile `android_ui` et sort les assets dans le dossier attendu par Capacitor).
+2. Copie / sync des assets : `npm run sync:web` puis `npm run cap:sync`.
+3. Ouvrir le projet Android : `npm run android:open` (ou ouvrir le dossier `android_app/android` dans Android Studio).
+4. Déployer sur tablette : run depuis Android Studio (USB ou debug réseau).
 
-### Références
+Les scripts exacts sont définis dans le `package.json` de `android_app/` ; les noms ci-dessus sont ceux prévus dans cette branche.
 
-- Contrat de protocole : `docs/protocol.md`
-- Source de vérité runtime : `mini_bdx_runtime/mini_bdx_runtime/xbox_controller.py`, `mini_bdx_runtime/mini_bdx_runtime/buttons.py`
+### Build / exécution sur la Raspberry Pi
 
+```bash
+sudo apt install bluez
+sudo usermod -aG bluetooth $USER   # puis re-login
+cd Open_Duck_Mini_Runtime
+source .venv/bin/activate
+pip install --no-cache-dir -e ".[ble]"
+bdx-ble-robot
+# ou : python -m mini_bdx_runtime.ble_gatt_server --dump
+```
+
+Détails des options (`--dbus-adapter`, `--no-agent`, dépannage BlueZ) : **`docs/protocol.md`**.
+
+### Références code
+
+- Contrat JSON et UUID GATT : **`docs/protocol.md`**
+- Manette physique de référence : **`mini_bdx_runtime/xbox_controller.py`**, **`buttons.py`**

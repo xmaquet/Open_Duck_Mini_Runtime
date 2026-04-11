@@ -286,3 +286,46 @@ Download the [latest policy checkpoint ](https://github.com/apirrone/Open_Duck_M
 - left and right triggers to control the left and right antennas
 - LB (new!) press and hold to increase the walking frequency, kind of a sprint mode 🙂
 ```
+
+## Android tablet control (BLE) — branch `feature/bdx_webui`
+
+This fork adds a **native BLE path** from an Android app to the Pi: the tablet is the BLE **central**, the Pi runs a **GATT server** (`bluez-peripheral` + BlueZ). No Wi‑Fi is required for control.
+
+| Topic | Location |
+|--------|----------|
+| JSON frame contract, UUIDs, Pi commands | **[docs/protocol.md](docs/protocol.md)** |
+| End-to-end architecture (UI → Kotlin → Pi) | **[docs/architecture.md](docs/architecture.md)** |
+| Xbox vs Android control overview | **[docs/bdx_bluetooth_control.md](docs/bdx_bluetooth_control.md)** |
+| Fallback BLE requirements file | **`extras/requirements-ble.txt`** |
+
+### On the Raspberry Pi
+
+1. **System**: `sudo apt install bluez` ; add user to group `bluetooth` (`sudo usermod -aG bluetooth $USER`) then **log out / reconnect** (or reboot).
+2. **Repo**: use this fork and the branch that contains BLE packaging, e.g.  
+   `git clone …` then `git checkout feature/bdx_webui` **or** add remote `xmaquet` and pull that branch (if your default `origin` still points to `apirrone/Open_Duck_Mini_Runtime`).
+3. **Python**: from the repo root with venv active:
+
+```bash
+pip install --no-cache-dir -e ".[ble]"
+bdx-ble-robot --dump    # optional: prints bridge commands; Ctrl+C to stop
+```
+
+Equivalent: `python -m mini_bdx_runtime.ble_gatt_server`.
+
+Useful flags: `--name "Open Duck Mini"`, `--no-agent` if pairing is already handled, `--dbus-adapter /org/bluez/hci0` if adapter autodetection fails on BlueZ 5.8+.
+
+### Packaging notes
+
+- Extra **`.[ble]`** installs **`bluez-peripheral`** in the **0.1.x** line (PyPI has no 1.x release; constraint is `>=0.1.7,<0.2`).
+- If pip says the extra **`ble`** is unknown, your `setup.cfg` is outdated → `git pull` the correct branch, or:  
+  `pip install -r extras/requirements-ble.txt` then `pip install -e .`.
+
+### Android app (Capacitor)
+
+Web UI lives in **`android_ui/`**; the installable app is **`android_app/`** (Capacitor + Kotlin BLE plugin). Build flow: see **`docs/architecture.md`** (`build:web`, `sync:web`, `cap:sync`, open in Android Studio).
+
+### Using the bridge in Python scripts
+
+`mini_bdx_runtime.xbox_bridge` exposes **`AndroidBridgeController`** with the same **`get_last_command()`** shape as the Xbox path when a **`VirtualJoystickState`** is fed from BLE (what `ble_gatt_server` does). Optional TCP relay: `python -m mini_bdx_runtime.xbox_bridge --tcp-port 8765`.
+
+You may see a harmless **ONNXRuntime GPU discovery** log on Pi at import time; it does not affect BLE.

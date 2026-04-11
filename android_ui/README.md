@@ -10,10 +10,10 @@ npm i
 npm run dev
 ```
 
+Pour empaqueter dans l’APK Android, enchaîner avec les scripts du dossier **`android_app/`** (`build:web`, `sync:web`, `cap:sync`, etc. — voir **`docs/architecture.md`**).
+
 ## Contrat d’échange (actuel)
 
-L’UI maintient un `ControllerState` et l’envoie en JSON vers le robot (voir `src/app/App.tsx`), via Web Bluetooth (voir `src/app/components/BluetoothManager.tsx`).
+L’UI maintient un état manette et émet des trames **JSON** alignées sur le runtime (`ControllerFrame` v1). Le transport vers le robot passe par l’app **Capacitor** (`../android_app/`) : le plugin Kotlin **BLE natif** écrit sur la caractéristique GATT **TX** (plus de dépendance au Web Bluetooth dans la WebView).
 
-## Note Web Bluetooth (Android)
-
-Web Bluetooth requiert un **contexte sécurisé** (HTTPS, ou `http://localhost` en dev). En production, si tu embarques cette UI dans une app Android, le plus robuste est souvent d’utiliser le **BLE natif** (et d’éviter les limites WebView).
+Voir **`docs/protocol.md`** (schéma JSON, UUID) et **`docs/architecture.md`** (chaîne UI → Kotlin → Pi).

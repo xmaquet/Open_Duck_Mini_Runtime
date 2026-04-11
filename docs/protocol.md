@@ -104,3 +104,24 @@ Le robot peut envoyer des logs/états sur RX (JSON libre, ex. `{ "type": "log", 
 - **Pairing** : l’agent `NoIoAgent` peut exiger des droits élevés ; en cas d’échec, lancer avec `sudo` ou `--no-agent` si le pairing est déjà en place.
 - L’app Android scanne le **service UUID** ci-dessus puis écrit sur **TX** ; le Pi réassemble les octets (écritures longues / chunks) et met à jour l’état consommé par `AndroidBridgeController`.
 
+### Dépannage (Pi / BlueZ / pip)
+
+| Symptôme | Cause probable | Piste |
+|----------|----------------|--------|
+| `does not provide the extra 'ble'` | Clone sur une branche ou un remote sans section `ble` dans `setup.cfg` | Utiliser la branche **`feature/bdx_webui`** du fork **xmaquet**, ou `pip install -r extras/requirements-ble.txt` puis `pip install -e .` |
+| `No matching distribution found for bluez-peripheral>=1` | Ancienne contrainte erronée (PyPI n’a pas de 1.x) | `git pull` le fork à jour (`>=0.1.7,<0.2`) |
+| `cannot import name 'Service' from 'bluez_peripheral.gatt'` | API 0.1.7 : `Service` est dans `gatt.service` | Mettre à jour `ble_gatt_server.py` depuis la branche du fork |
+| `InterfaceNotFoundError: org.bluez.Adapter1` | BlueZ 5.8x : sous `/org/bluez`, certains nœuds ne sont pas des adaptateurs HCI | Version récente du serveur qui **filtre** les objets sans `Adapter1`, ou lancer avec **`--dbus-adapter /org/bluez/hci0`** |
+| Bluetooth éteint | Adaptateur non alimenté | `bluetoothctl power on` |
+| Pairing / agent | Droits D-Bus | `sudo usermod -aG bluetooth $USER` + reconnexion ; ou `--no-agent` si déjà appairé |
+| Avertissement ONNX « GPU device discovery failed » sur Pi | Import `onnxruntime` ailleurs dans la chaîne | Sans impact sur le BLE ; ignorer ou retarder l’import ONNX si les logs gênent |
+
+### Options CLI utiles (`bdx-ble-robot` / `ble_gatt_server`)
+
+- **`--name`** : nom d’affichage en publicité BLE.
+- **`--dump`** : affiche périodiquement `get_last_command()` (test sans script RL).
+- **`--freq`** : fréquence de la boucle `AndroidBridgeController` (Hz).
+- **`--head-only`** : `only_head_control` côté pont.
+- **`--no-agent`** : ne pas enregistrer `NoIoAgent` (pairing déjà géré ou souci de permissions).
+- **`--dbus-adapter PATH`** : chemin D-Bus explicite de l’adaptateur (ex. `/org/bluez/hci0`).
+
